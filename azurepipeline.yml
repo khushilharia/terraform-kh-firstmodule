@@ -30,7 +30,7 @@ stages:
 
     - task: AzureCLI@2
       inputs:
-        azureSubscription: 'My-Azure-Service-Connection'
+        azureSubscription: '$(azureServiceConnection)'
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
