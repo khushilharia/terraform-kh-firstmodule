@@ -5,7 +5,7 @@ trigger:
 
 variables:
   terraformVersion: '1.6.6'
-  azureServiceConnection: '6f0f938c-0599-4b69-9b56-09468ec24549'
+  azureServiceConnection: 'Pay-as-you-go-sc'
   environment: 'dev'
 
 stages:
