@@ -41,10 +41,6 @@ stages:
           export ARM_TENANT_ID=$(az account show --query tenantId -o tsv)
           export ARM_USE_OIDC=true
 
-          terraform init -backend-config="key=$(environment).tfstate"
-          terraform plan -out=tfplan -input=false
-          terraform apply tfplan
-
     - task: Bash@3
       displayName: 'Install Terraform'
       inputs:
