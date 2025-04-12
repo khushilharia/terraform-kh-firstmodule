@@ -1,47 +1,27 @@
 trigger:
   branches:
     include:
-      - main
+      - main  # Change as needed
 
 variables:
   terraformVersion: '1.6.6'
-  azureServiceConnection: 'Pay-as-you-go-sc'
+  azureServiceConnection: 'Pay-as-you-go-sc'  # <-- Your service connection name
   environment: 'dev'
+  tfStateKey: 'terraform-$(environment).tfstate'
 
 stages:
-- stage: Terraform_Deploy
-  displayName: 'Terraform Deployment'
+- stage: DeployTerraform
+  displayName: 'Terraform Deployment to Azure'
   jobs:
   - job: Terraform
-    displayName: 'Terraform Init, Plan and Apply'
+    displayName: 'Run Terraform'
     pool:
       vmImage: 'ubuntu-latest'
 
     steps:
     - checkout: self
 
-    - task: AzureCLI@2
-      inputs:
-        azureSubscription: '$(azureServiceConnection)'
-        scriptType: 'bash'
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          az login
-          echo "Logged into Azure."
-
-    - task: AzureCLI@2
-      inputs:
-        azureSubscription: '$(azureServiceConnection)'
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
-          echo "Exporting Azure credentials for Terraform..."
-
-          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-          export ARM_CLIENT_ID=$(az ad signed-in-user show --query id -o tsv)
-          export ARM_TENANT_ID=$(az account show --query tenantId -o tsv)
-          export ARM_USE_OIDC=true
-
+    # Optional: Install specific Terraform version manually
     - task: Bash@3
       displayName: 'Install Terraform'
       inputs:
@@ -52,27 +32,32 @@ stages:
           sudo mv terraform /usr/local/bin/
           terraform -version
 
-    - script: |
-        terraform init -backend-config="key=$(environment).tfstate"
-      displayName: 'Terraform Init'
+    # Azure Login using AzureCLI task
+    - task: AzureCLI@2
+      name: AzureLogin
+      inputs:
+        azureSubscription: $(azureServiceConnection)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Logged in to Azure. Setting Terraform environment variables..."
 
-    - script: |
-        terraform validate
-      displayName: 'Terraform Validate'
-  
+          export ARM_CLIENT_ID=$servicePrincipalId
+          export ARM_CLIENT_SECRET=$servicePrincipalKey
+          export ARM_SUBSCRIPTION_ID=$subscriptionId
+          export ARM_TENANT_ID=$tenantId
 
-    - script: |
-        terraform plan -out=tfplan -input=false
-      displayName: 'Terraform Plan'
+          echo "Environment variables set for Terraform."
 
-    # Optional: Remove this or implement environment-based approvals instead
-    # - task: ManualValidation@0
-    #   displayName: 'Manual Approval'
-    #   inputs:
-    #     instructions: 'Approve to apply Terraform changes in $(environment)'
-    #     onTimeout: 'reject'
-    #     timeout: '1d'
+          # Optional: Validate auth
+          az account show
 
-    - script: |
-        terraform apply tfplan
-      displayName: 'Terraform Apply'
+          # Init Terraform with remote state /* -backend-config="key=$(tfStateKey)" */
+          terraform init 
+
+          # Validate and Plan
+          terraform validate
+          terraform plan
+
+          # Apply changes
+          terraform apply -auto-approve
